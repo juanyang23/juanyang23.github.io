@@ -1,0 +1,561 @@
+<!DOCTYPE html>  
+<html lang="zh-CN">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+    <title>英语音标教练 (带发音提示版)</title>  
+    <style>  
+        :root {  
+            --primary: #4a90e2;  
+            --secondary: #50e3c2;  
+            --accent: #ff6b6b;  
+            --bg: #f4f7f6;  
+            --card-bg: #ffffff;  
+            --text: #333;  
+        }  
+  
+        body {  
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;  
+            background-color: var(--bg);  
+            color: var(--text);  
+            margin: 0;  
+            padding: 0;  
+            display: flex;  
+            flex-direction: column;  
+            align-items: center;  
+            min-height: 100vh;  
+        }  
+  
+        header {  
+            background: linear-gradient(135deg, var(--primary), var(--secondary));  
+            width: 100%;  
+            padding: 20px 0;  
+            text-align: center;  
+            color: white;  
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);  
+        }  
+  
+        h1 { margin: 0; font-size: 1.6rem; }  
+        p { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; }  
+  
+        /* Navigation */  
+        .nav-tabs {  
+            display: flex;  
+            justify-content: center;  
+            gap: 10px;  
+            margin-top: 20px;  
+            flex-wrap: wrap;  
+        }  
+  
+        .nav-btn {  
+            border: none;  
+            background: white;  
+            padding: 10px 20px;  
+            border-radius: 25px;  
+            cursor: pointer;  
+            font-size: 0.95rem;  
+            font-weight: bold;  
+            color: #777;  
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);  
+            transition: all 0.3s;  
+        }  
+  
+        .nav-btn.active {  
+            background-color: var(--primary);  
+            color: white;  
+            transform: scale(1.05);  
+        }  
+  
+        /* Container */  
+        .container {  
+            width: 90%;  
+            max-width: 1100px;  
+            margin: 20px auto;  
+            padding-bottom: 50px;  
+        }  
+  
+        .view-section { display: none; animation: fadeIn 0.5s; }  
+        .view-section.active { display: block; }  
+  
+        @keyframes fadeIn {  
+            from { opacity: 0; transform: translateY(10px); }  
+            to { opacity: 1; transform: translateY(0); }  
+        }  
+  
+        /* Learn Grid Styles */  
+        .grid {  
+            display: grid;  
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));  
+            gap: 15px;  
+            margin-top: 15px;  
+        }  
+        .card {  
+            background: var(--card-bg);  
+            border-radius: 12px;  
+            padding: 15px;  
+            text-align: center;  
+            cursor: pointer;  
+            border: 2px solid transparent;  
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);  
+            transition: transform 0.2s;  
+            display: flex;  
+            flex-direction: column;  
+            justify-content: space-between; /* 让内容上下分布 */  
+            min-height: 160px;  
+        }  
+        .card:hover { transform: translateY(-3px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }  
+        .card.playing { border-color: var(--secondary); background-color: #f0fffa; }  
+          
+        .ipa-symbol {   
+            font-size: 1.8rem;   
+            font-weight: bold;   
+            margin-bottom: 8px;   
+            font-family: sans-serif;   
+            color: var(--primary);   
+        }  
+          
+        .word-container {  
+            display: flex;  
+            flex-direction: column;  
+            gap: 4px;  
+            flex-grow: 1;  
+        }  
+  
+        .example-word {   
+            font-size: 0.9rem;   
+            color: #333;   
+            background: #f0f2f5;   
+            padding: 4px 8px;   
+            border-radius: 4px;   
+        }  
+  
+        /* 新增：发音提示样式 */  
+        .desc-text {  
+            font-size: 0.75rem;  
+            color: #888;  
+            margin-top: 10px;  
+            padding-top: 8px;  
+            border-top: 1px dashed #eee;  
+            font-style: italic;  
+        }  
+          
+        .category-title { margin-top: 25px; border-left: 4px solid var(--primary); padding-left: 10px; font-weight: bold; color: #555; }  
+  
+        /* Quiz & Speak Containers */  
+        .mode-container {  
+            background: white;  
+            padding: 30px;  
+            border-radius: 15px;  
+            box-shadow: 0 5px 20px rgba(0,0,0,0.05);  
+            text-align: center;  
+            max-width: 500px;  
+            margin: 0 auto;  
+        }  
+  
+        /* Quiz Specific */  
+        .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }  
+        .option-btn { padding: 15px; background: #f8f9fa; border: 2px solid #eee; border-radius: 8px; font-size: 1.1rem; cursor: pointer; }  
+        .option-btn.correct { background: #d4edda; border-color: #28a745; color: #155724; }  
+        .option-btn.wrong { background: #f8d7da; border-color: #dc3545; color: #721c24; }  
+  
+        /* Speaking Mode Specific */  
+        .speak-target-box {  
+            margin: 20px 0;  
+            padding: 20px;  
+            background: #f8f9fa;  
+            border-radius: 10px;  
+            border: 2px dashed #ccc;  
+        }  
+        .big-ipa { font-size: 3rem; color: var(--primary); display: block; }  
+        .big-word { font-size: 2rem; color: #333; font-weight: bold; margin-top: 10px; display: block; }  
+          
+        .mic-btn {  
+            width: 80px;  
+            height: 80px;  
+            border-radius: 50%;  
+            border: none;  
+            background: var(--primary);  
+            color: white;  
+            font-size: 2rem;  
+            cursor: pointer;  
+            box-shadow: 0 5px 15px rgba(74, 144, 226, 0.4);  
+            transition: all 0.2s;  
+            margin: 20px auto;  
+            display: flex;  
+            align-items: center;  
+            justify-content: center;  
+        }  
+        .mic-btn:active { transform: scale(0.95); }  
+        .mic-btn.listening {  
+            background: var(--accent);  
+            animation: pulse 1.5s infinite;  
+        }  
+        .mic-status { height: 20px; font-size: 0.9rem; color: #888; margin-bottom: 10px; }  
+  
+        @keyframes pulse {  
+            0% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.7); }  
+            70% { box-shadow: 0 0 0 20px rgba(255, 107, 107, 0); }  
+            100% { box-shadow: 0 0 0 0 rgba(255, 107, 107, 0); }  
+        }  
+  
+        .action-btn {  
+            padding: 10px 30px;  
+            background: var(--primary);  
+            color: white;  
+            border: none;  
+            border-radius: 25px;  
+            cursor: pointer;  
+            margin-top: 15px;  
+            font-size: 1rem;  
+        }  
+          
+        .play-sound-btn {  
+            background: none; border: 1px solid #ccc; border-radius: 20px;  
+            padding: 5px 15px; cursor: pointer; margin: 10px 0; font-size: 0.9rem;  
+        }  
+        .play-sound-btn:hover { background: #eee; }  
+  
+    </style>  
+</head>  
+<body>  
+  
+    <header>  
+        <h1>全能英语音标教练</h1>  
+        <p>点击卡片朗读 | 底部查看发音技巧</p>  
+    </header>  
+  
+    <div class="nav-tabs">  
+        <button class="nav-btn active" onclick="switchTab('learn')">学习模式</button>  
+        <button class="nav-btn" onclick="switchTab('quiz')">听音测试</button>  
+        <button class="nav-btn" onclick="switchTab('speak')">口语跟读</button>  
+    </div>  
+  
+    <div class="container">  
+          
+        <!-- 1. 学习模式 -->  
+        <div id="learn-section" class="view-section active"></div>  
+  
+        <!-- 2. 听音测试模式 -->  
+        <div id="quiz-section" class="view-section">  
+            <div class="mode-container">  
+                <div style="font-size: 1.2rem; font-weight: bold; color: var(--primary); margin-bottom: 10px;">  
+                    得分: <span id="score">0</span>  
+                </div>  
+                <p>听到的是哪个音标的单词？</p>  
+                  
+                <div style="margin: 20px 0;">  
+                    <div class="big-ipa" id="q-ipa" style="font-size: 2.5rem;">/ ? /</div>  
+                    <button class="play-sound-btn" onclick="playCurrentQuizSound()">🔊 再听一遍音标</button>  
+                </div>  
+  
+                <div class="options-grid" id="options-area"></div>  
+                <div id="quiz-feedback" style="height: 30px; margin-top: 15px; font-weight: bold;"></div>  
+                <button class="action-btn" id="quiz-next-btn" style="display:none;" onclick="nextQuizQuestion()">下一题</button>  
+            </div>  
+        </div>  
+  
+        <!-- 3. 口语跟读模式 -->  
+        <div id="speak-section" class="view-section">  
+            <div class="mode-container">  
+                <p>请按下麦克风，大声读出下方的单词</p>  
+                  
+                <div class="speak-target-box">  
+                    <span class="big-ipa" id="speak-ipa">/ i: /</span>  
+                    <span class="big-word" id="speak-word">see</span>  
+                    <button class="play-sound-btn" onclick="playTargetWord()">🔊 听示范发音</button>  
+                </div>  
+  
+                <div class="mic-status" id="mic-status">点击麦克风开始</div>  
+  
+                <button class="mic-btn" id="mic-btn" onmousedown="startListening()" onmouseup="stopListening()" ontouchstart="startListening()" ontouchend="stopListening()">  
+                    🎤  
+                </button>  
+                <p style="font-size:0.8rem; color:#999;">(按住说话，松开结束)</p>  
+  
+                <div id="speak-result" style="font-size: 1.2rem; font-weight: bold; margin-top: 20px; min-height: 30px;"></div>  
+                <div id="speak-transcript" style="color:#888; font-style:italic; font-size:0.9rem;"></div>  
+  
+                <button class="action-btn" onclick="nextSpeakQuestion()">换一个词</button>  
+            </div>  
+        </div>  
+    </div>  
+  
+    <script>  
+        /* --- 数据源：已优化 desc 描述 --- */  
+        const ipaData = [  
+            { symbol: "i:", phonic: "Eee", type: "vowel", sub: "长元音", examples: ["see", "tea", "me"], desc: "嘴角向两边拉开，像微笑状，声音长" },  
+            { symbol: "ɑ:", phonic: "Ahhh", type: "vowel", sub: "长元音", examples: ["car", "father", "art"], desc: "嘴巴张大，像看牙医时说'啊'" },  
+            { symbol: "ɔ:", phonic: "Orrr", type: "vowel", sub: "长元音", examples: ["door", "four", "law"], desc: "双唇收圆，向前突出" },  
+            { symbol: "u:", phonic: "Oooo", type: "vowel", sub: "长元音", examples: ["blue", "food", "shoe"], desc: "嘴唇撅起，像吹口哨，声音长" },  
+            { symbol: "ɜ:", phonic: "Urrr", type: "vowel", sub: "长元音", examples: ["girl", "bird", "turn"], desc: "牙床微开，舌中部抬起" },  
+            { symbol: "ɪ", phonic: "ih", type: "vowel", sub: "短元音", examples: ["sit", "pig", "big"], desc: "短促有力，嘴唇微开" },  
+            { symbol: "e", phonic: "eh", type: "vowel", sub: "短元音", examples: ["bed", "pen", "hen"], desc: "嘴角微开，上下齿间容一指" },  
+            { symbol: "æ", phonic: "a", type: "vowel", sub: "短元音", examples: ["cat", "bad", "hat"], desc: "嘴张大，上下齿间容两指" },  
+            { symbol: "ɒ", phonic: "o", type: "vowel", sub: "短元音", examples: ["hot", "box", "dog"], desc: "嘴张大圆，发音短促" },  
+            { symbol: "ʊ", phonic: "uh", type: "vowel", sub: "短元音", examples: ["book", "look", "put"], desc: "双唇收圆，肌肉放松" },  
+            { symbol: "ʌ", phonic: "uh", type: "vowel", sub: "短元音", examples: ["cup", "bus", "sun"], desc: "嘴微张，中部快速发音" },  
+            { symbol: "ə", phonic: "uh", type: "vowel", sub: "短元音", examples: ["about", "sofa", "ago"], desc: "嘴唇自然放松，轻轻一声" },  
+            { symbol: "eɪ", phonic: "Ay", type: "vowel", sub: "双元音", examples: ["day", "cake", "say"], desc: "从e滑向i，像字母A的发音" },  
+            { symbol: "aɪ", phonic: "Eye", type: "vowel", sub: "双元音", examples: ["my", "fly", "ice"], desc: "从a滑向i，像'爱'" },  
+            { symbol: "ɔɪ", phonic: "Oy", type: "vowel", sub: "双元音", examples: ["boy", "toy", "oil"], desc: "从o滑向i" },  
+            { symbol: "aʊ", phonic: "Ow", type: "vowel", sub: "双元音", examples: ["now", "cow", "out"], desc: "从a滑向u，像被踩了脚" },  
+            { symbol: "əʊ", phonic: "Oh", type: "vowel", sub: "双元音", examples: ["go", "no", "old"], desc: "从ə滑向u，像字母O" },  
+            { symbol: "p", phonic: "Puh", type: "consonant", sub: "清辅音", examples: ["pen", "pig", "top"], desc: "双唇紧闭然后爆破，声带不震" },  
+            { symbol: "b", phonic: "Buh", type: "consonant", sub: "浊辅音", examples: ["bat", "big", "bus"], desc: "双唇紧闭然后爆破，声带震动" },  
+            { symbol: "t", phonic: "Tuh", type: "consonant", sub: "清辅音", examples: ["tea", "ten", "top"], desc: "舌尖抵上齿龈爆破，声带不震" },  
+            { symbol: "d", phonic: "Duh", type: "consonant", sub: "浊辅音", examples: ["dog", "dad", "day"], desc: "舌尖抵上齿龈爆破，声带震动" },  
+            { symbol: "s", phonic: "Sss", type: "consonant", sub: "清辅音", examples: ["see", "sit", "sun"], desc: "上下齿闭合，气流摩擦，像蛇" },  
+            { symbol: "z", phonic: "Zzz", type: "consonant", sub: "浊辅音", examples: ["zoo", "zip", "zero"], desc: "像蜜蜂飞舞的声音" },  
+            { symbol: "m", phonic: "Mmm", type: "consonant", sub: "鼻音", examples: ["me", "map", "man"], desc: "双唇闭合，气流从鼻出" },  
+            { symbol: "n", phonic: "Nnn", type: "consonant", sub: "鼻音", examples: ["no", "nine", "net"], desc: "舌尖抵上齿龈，气流从鼻出" }  
+        ];  
+  
+        // --- 全局变量 ---  
+        let currentTimeout = null;  
+        let currentQuizItem = null;  
+        let currentSpeakItem = null;  
+        let currentSpeakWord = "";  
+        let recognition = null;  
+  
+        // --- 初始化 ---  
+        window.onload = function() {  
+            renderLearning();  
+            initSpeechRecognition();  
+        };  
+  
+        function switchTab(tab) {  
+            window.speechSynthesis.cancel(); // 停止所有声音  
+              
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));  
+            document.getElementById(tab + '-section').classList.add('active');  
+              
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));  
+            event.target.classList.add('active');  
+  
+            if(tab === 'quiz') nextQuizQuestion();  
+            if(tab === 'speak') nextSpeakQuestion();  
+        }  
+  
+        /* ================= 1. 学习模式逻辑 (包含发音提示) ================= */  
+        function renderLearning() {  
+            const container = document.getElementById('learn-section');  
+            const groups = {};  
+            ipaData.forEach(item => {  
+                const key = `$${item.type === 'vowel' ? '元音' : '辅音'} - $${item.sub}`;  
+                if (!groups[key]) groups[key] = [];  
+                groups[key].push(item);  
+            });  
+  
+            for (const [groupName, items] of Object.entries(groups)) {  
+                const title = document.createElement('div');  
+                title.className = 'category-title';  
+                title.innerText = groupName;  
+                container.appendChild(title);  
+  
+                const grid = document.createElement('div');  
+                grid.className = 'grid';  
+  
+                items.forEach(item => {  
+                    const card = document.createElement('div');  
+                    card.className = 'card';  
+                    card.onclick = function() { playSoundSequence(item, this); };  
+                      
+                    // 构建单词HTML  
+                    let wordsHtml = "";  
+                    item.examples.forEach(word => {  
+                        wordsHtml += `<span class="example-word">${word}</span>`;  
+                    });  
+                      
+                    // 构建卡片HTML，加入了 desc-text  
+                    card.innerHTML = `  
+                        <div class="ipa-symbol">/${item.symbol}/</div>  
+                        <div class="word-container">  
+                            ${wordsHtml}  
+                        </div>  
+                        <div class="desc-text">${item.desc}</div>  
+                    `;  
+                      
+                    grid.appendChild(card);  
+                });  
+                container.appendChild(grid);  
+            }  
+        }  
+  
+        function playSoundSequence(item, cardEl) {  
+            window.speechSynthesis.cancel();  
+            if (currentTimeout) clearTimeout(currentTimeout);  
+            document.querySelectorAll('.card').forEach(c => c.classList.remove('playing'));  
+            cardEl.classList.add('playing');  
+  
+            const u1 = new SpeechSynthesisUtterance(item.phonic);  
+            u1.rate = 0.8; u1.lang = 'en-US';  
+  
+            const u2 = new SpeechSynthesisUtterance(item.examples.join('. '));  
+            u2.rate = 0.8; u2.lang = 'en-US';  
+            u2.onend = () => cardEl.classList.remove('playing');  
+  
+            u1.onend = () => {  
+                currentTimeout = setTimeout(() => window.speechSynthesis.speak(u2), 500);  
+            };  
+            window.speechSynthesis.speak(u1);  
+        }  
+  
+        /* ================= 2. 听音测试逻辑 ================= */  
+        let quizScore = 0;  
+  
+        function nextQuizQuestion() {  
+            document.getElementById('quiz-feedback').innerText = '';  
+            document.getElementById('quiz-next-btn').style.display = 'none';  
+              
+            // 随机选一个  
+            currentQuizItem = ipaData[Math.floor(Math.random() * ipaData.length)];  
+              
+            // 显示题目  
+            document.getElementById('q-ipa').innerText = `/${currentQuizItem.symbol}/`;  
+              
+            // 生成选项  
+            const correctWord = currentQuizItem.examples[Math.floor(Math.random() * currentQuizItem.examples.length)];  
+            const options = [correctWord];  
+            while (options.length < 4) {  
+                const rItem = ipaData[Math.floor(Math.random() * ipaData.length)];  
+                if (rItem.symbol !== currentQuizItem.symbol) {  
+                    const rWord = rItem.examples[Math.floor(Math.random() * rItem.examples.length)];  
+                    if (!options.includes(rWord)) options.push(rWord);  
+                }  
+            }  
+            options.sort(() => Math.random() - 0.5);  
+  
+            const optArea = document.getElementById('options-area');  
+            optArea.innerHTML = '';  
+            options.forEach(word => {  
+                const btn = document.createElement('button');  
+                btn.className = 'option-btn';  
+                btn.innerText = word;  
+                btn.onclick = () => checkQuizAnswer(btn, word, correctWord);  
+                optArea.appendChild(btn);  
+            });  
+  
+            // 自动播放音标声音  
+            setTimeout(() => playCurrentQuizSound(), 500);  
+        }  
+  
+        function playCurrentQuizSound() {  
+            if(!currentQuizItem) return;  
+            window.speechSynthesis.cancel();  
+            const u = new SpeechSynthesisUtterance(currentQuizItem.phonic);  
+            u.lang = 'en-US'; u.rate = 0.8;  
+            window.speechSynthesis.speak(u);  
+        }  
+  
+        function checkQuizAnswer(btn, selected, correct) {  
+            const btns = document.querySelectorAll('.option-btn');  
+            btns.forEach(b => b.disabled = true);  
+              
+            const fb = document.getElementById('quiz-feedback');  
+            if(selected === correct) {  
+                btn.classList.add('correct');  
+                quizScore += 10;  
+                fb.innerText = "正确! 🎉";  
+                fb.style.color = "green";  
+                speakText("Correct");  
+            } else {  
+                btn.classList.add('wrong');  
+                fb.innerText = `错误，答案是: ${correct}`;  
+                fb.style.color = "red";  
+                btns.forEach(b => { if(b.innerText === correct) b.classList.add('correct'); });  
+                speakText("Wrong");  
+            }  
+            document.getElementById('score').innerText = quizScore;  
+            document.getElementById('quiz-next-btn').style.display = 'inline-block';  
+        }  
+  
+        /* ================= 3. 口语跟读逻辑 ================= */  
+          
+        function initSpeechRecognition() {  
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;  
+            if (SpeechRecognition) {  
+                recognition = new SpeechRecognition();  
+                recognition.lang = 'en-US';  
+                recognition.interimResults = false;  
+                recognition.maxAlternatives = 1;  
+  
+                recognition.onstart = () => {  
+                    document.getElementById('mic-btn').classList.add('listening');  
+                    document.getElementById('mic-status').innerText = "正在聆听...";  
+                };  
+  
+                recognition.onend = () => {  
+                    document.getElementById('mic-btn').classList.remove('listening');  
+                    document.getElementById('mic-status').innerText = "点击麦克风开始";  
+                };  
+  
+                recognition.onresult = (event) => {  
+                    const transcript = event.results[0][0].transcript.toLowerCase().trim();  
+                    document.getElementById('speak-transcript').innerText = `识别到: "${transcript}"`;  
+                    verifySpeech(transcript);  
+                };  
+  
+                recognition.onerror = (event) => {  
+                    document.getElementById('speak-result').innerText = "听不清楚，请再试一次";  
+                    document.getElementById('speak-result').style.color = "orange";  
+                };  
+            } else {  
+                document.getElementById('mic-btn').style.display = 'none';  
+                document.getElementById('mic-status').innerText = "您的浏览器不支持语音识别 (推荐使用 Chrome/Edge)";  
+            }  
+        }  
+  
+        function nextSpeakQuestion() {  
+            document.getElementById('speak-result').innerText = "";  
+            document.getElementById('speak-transcript').innerText = "";  
+              
+            currentSpeakItem = ipaData[Math.floor(Math.random() * ipaData.length)];  
+            currentSpeakWord = currentSpeakItem.examples[Math.floor(Math.random() * currentSpeakItem.examples.length)];  
+              
+            document.getElementById('speak-ipa').innerText = `/${currentSpeakItem.symbol}/`;  
+            document.getElementById('speak-word').innerText = currentSpeakWord;  
+        }  
+  
+        function playTargetWord() {  
+            speakText(currentSpeakWord);  
+        }  
+  
+        function startListening() {  
+            if(recognition) {  
+                try { recognition.start(); } catch(e) {}  
+            }  
+        }  
+          
+        function stopListening() {  
+            if(recognition) {  
+                recognition.stop();  
+            }  
+        }  
+  
+        function verifySpeech(transcript) {  
+            const cleanTranscript = transcript.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g,"");  
+            const cleanTarget = currentSpeakWord.toLowerCase();  
+            const resBox = document.getElementById('speak-result');  
+              
+            if (cleanTranscript === cleanTarget) {  
+                resBox.innerText = "Perfect! 发音准确 🌟";  
+                resBox.style.color = "green";  
+                speakText("Great job");  
+            } else if (cleanTranscript.includes(cleanTarget)) {  
+                resBox.innerText = "Good! 发音通过 ✅";  
+                resBox.style.color = "#28a745";  
+            } else {  
+                resBox.innerText = "发音不太准，请再试一次 ❌";  
+                resBox.style.color = "red";  
+            }  
+        }  
+  
+        function speakText(text) {  
+            window.speechSynthesis.cancel();  
+            const u = new SpeechSynthesisUtterance(text);  
+            u.lang = 'en-US';  
+            window.speechSynthesis.speak(u);  
+        }  
+    </script>  
+</body>  
+</html>  
