@@ -1,0 +1,350 @@
+<!DOCTYPE html>  
+<html lang="zh-CN">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+    <title>Chromium 工作原理可视化</title>  
+    <style>  
+        body {  
+            margin: 0;  
+            background-color: #1e272e;  
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;  
+            color: white;  
+            display: flex;  
+            flex-direction: column;  
+            align-items: center;  
+            min-height: 100vh;  
+        }  
+  
+        h1 { margin-top: 20px; font-weight: 300; }  
+  
+        /* 控制栏 */  
+        .controls {  
+            margin: 20px;  
+            background: rgba(255, 255, 255, 0.1);  
+            padding: 15px 30px;  
+            border-radius: 30px;  
+            display: flex;  
+            gap: 20px;  
+            align-items: center;  
+        }  
+  
+        button {  
+            padding: 10px 30px;  
+            background: #0984e3;  
+            color: white;  
+            border: none;  
+            border-radius: 20px;  
+            cursor: pointer;  
+            font-size: 16px;  
+            font-weight: bold;  
+            transition: 0.2s;  
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);  
+        }  
+  
+        button:hover { background: #74b9ff; transform: translateY(-2px); }  
+        button:disabled { background: #555; cursor: not-allowed; transform: none; }  
+  
+        /* 主舞台 */  
+        .stage {  
+            position: relative;  
+            width: 1000px;  
+            height: 600px;  
+            background: #2d3436;  
+            border-radius: 15px;  
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);  
+            overflow: hidden;  
+        }  
+  
+        /* 进程盒子样式 */  
+        .process-box {  
+            position: absolute;  
+            border-radius: 10px;  
+            padding: 10px;  
+            border: 2px solid rgba(255,255,255,0.2);  
+            background: rgba(0,0,0,0.2);  
+            transition: all 0.3s;  
+        }  
+        .process-title {  
+            position: absolute;  
+            top: -30px;  
+            left: 0;  
+            font-size: 14px;  
+            font-weight: bold;  
+            color: #aaa;  
+            text-transform: uppercase;  
+            letter-spacing: 1px;  
+        }  
+  
+        /* 具体进程位置 */  
+        #browser-process { top: 50px; left: 50px; width: 250px; height: 200px; border-color: #0984e3; }  
+        #network-service { top: 300px; left: 50px; width: 250px; height: 100px; border-color: #e17055; border-style: dashed; }  
+        #renderer-process { top: 50px; left: 400px; width: 550px; height: 350px; border-color: #00b894; }  
+        #gpu-process { top: 450px; left: 400px; width: 550px; height: 100px; border-color: #6c5ce7; }  
+  
+        /* 内部组件 */  
+        .component {  
+            position: absolute;  
+            background: rgba(255,255,255,0.1);  
+            border-radius: 5px;  
+            display: flex;  
+            align-items: center;  
+            justify-content: center;  
+            font-size: 12px;  
+            color: #ddd;  
+            text-align: center;  
+        }  
+  
+        /* 浏览器进程组件 */  
+        .ui-thread { top: 40px; left: 20px; width: 210px; height: 40px; background: #0984e3; }  
+        .storage { top: 100px; left: 20px; width: 210px; height: 40px; }  
+  
+        /* 渲染进程组件 */  
+        .main-thread { top: 40px; left: 20px; width: 510px; height: 180px; border: 1px solid #00b894; background: transparent; }  
+        .compositor-thread { top: 240px; left: 20px; width: 240px; height: 90px; background: #00b894; opacity: 0.2; }  
+        .raster-thread { top: 240px; left: 280px; width: 240px; height: 90px; background: #00b894; opacity: 0.2; }  
+  
+        /* 渲染流水线节点 */  
+        .pipeline-node {  
+            position: absolute;  
+            width: 80px;  
+            height: 60px;  
+            background: #444;  
+            border-radius: 5px;  
+            display: flex;  
+            flex-direction: column;  
+            align-items: center;  
+            justify-content: center;  
+            font-size: 10px;  
+            opacity: 0.3;  
+            transition: 0.3s;  
+        }  
+        .pipeline-node span { font-size: 16px; margin-bottom: 5px; }  
+  
+        #node-html { top: 80px; left: 40px; }  
+        #node-style { top: 80px; left: 140px; }  
+        #node-layout { top: 80px; left: 240px; }  
+        #node-paint { top: 80px; left: 340px; }  
+        #node-layer { top: 80px; left: 440px; }  
+  
+        /* 连线 SVG */  
+        svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }  
+        .connection { stroke: #555; stroke-width: 2; fill: none; }  
+          
+        /* 数据包动画 */  
+        .packet {  
+            position: absolute;  
+            width: 12px;  
+            height: 12px;  
+            background: #fff;  
+            border-radius: 50%;  
+            box-shadow: 0 0 10px #fff;  
+            opacity: 0;  
+            z-index: 10;  
+        }  
+  
+        .packet.url { background: #ffeaa7; }  
+        .packet.html { background: #55efc4; }  
+        .packet.tile { background: #a29bfe; width: 20px; height: 20px; border-radius: 2px; }  
+  
+        /* 状态提示 */  
+        #status-bar {  
+            margin-top: 10px;  
+            font-size: 18px;  
+            color: #fab1a0;  
+            height: 30px;  
+        }  
+  
+        /* 高亮动画 */  
+        .active-component {  
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);  
+            background: rgba(255,255,255,0.2) !important;  
+            opacity: 1 !important;  
+            transform: scale(1.05);  
+        }  
+  
+    </style>  
+</head>  
+<body>  
+  
+    <h1>Chromium 渲染原理 (IPC & Pipeline)</h1>  
+  
+    <div class="controls">  
+        <button id="btn-start" onclick="startAnimation()">开始加载网页</button>  
+        <div id="status-bar">准备就绪</div>  
+    </div>  
+  
+    <div class="stage">  
+        <svg>  
+            <!-- Browser to Network -->  
+            <path d="M 175 90 L 175 300" class="connection"/>  
+            <!-- Network to Renderer -->  
+            <path d="M 300 350 L 400 150" class="connection"/>  
+            <!-- Renderer to GPU -->  
+            <path d="M 675 330 L 675 450" class="connection"/>  
+        </svg>  
+  
+        <!-- 1. 浏览器进程 (控制中心) -->  
+        <div class="process-box" id="browser-process">  
+            <div class="process-title" style="color: #0984e3;">Browser Process (主控)</div>  
+            <div class="component ui-thread" id="comp-ui">UI Thread (地址栏/标签)</div>  
+            <div class="component storage" id="comp-storage">Storage / Cookies</div>  
+        </div>  
+  
+        <!-- 2. 网络服务 (Network Service) -->  
+        <div class="process-box" id="network-service">  
+            <div class="process-title" style="color: #e17055;">Network Service</div>  
+            <div class="component" style="width: 100%; height: 100%; background: transparent;">HTTP / DNS / SSL</div>  
+        </div>  
+  
+        <!-- 3. 渲染进程 (核心) -->  
+        <div class="process-box" id="renderer-process">  
+            <div class="process-title" style="color: #00b894;">Renderer Process (沙箱)</div>  
+              
+            <!-- 主线程 -->  
+            <div class="component main-thread">  
+                <div style="position:absolute; top:-20px; left:10px; font-weight:bold; color:#00b894;">Main Thread</div>  
+                  
+                <div class="pipeline-node" id="node-html"><span>📄</span>Parsing<br>DOM Tree</div>  
+                <div class="pipeline-node" id="node-style"><span>🎨</span>Style<br>Recalc</div>  
+                <div class="pipeline-node" id="node-layout"><span>📐</span>Layout<br>Box Tree</div>  
+                <div class="pipeline-node" id="node-paint"><span>🖌️</span>Paint<br>Record</div>  
+                <div class="pipeline-node" id="node-layer"><span>🍰</span>Layer<br>Composite</div>  
+            </div>  
+  
+            <!-- 合成线程 -->  
+            <div class="component compositor-thread" id="comp-compositor">  
+                Compositor Thread<br>(分块 Tiling)  
+            </div>  
+              
+            <!-- 光栅化线程 -->  
+            <div class="component raster-thread" id="comp-raster">  
+                Raster Threads<br>(光栅化)  
+            </div>  
+        </div>  
+  
+        <!-- 4. GPU 进程 -->  
+        <div class="process-box" id="gpu-process">  
+            <div class="process-title" style="color: #6c5ce7;">GPU Process</div>  
+            <div class="component" style="width: 100%; height: 100%; background: transparent;" id="comp-gpu">  
+                OpenGL / Skia / DrawQuad -> Screen  
+            </div>  
+        </div>  
+          
+        <!-- 动画用的小球容器 -->  
+        <div id="anim-layer"></div>  
+    </div>  
+  
+    <script>  
+        const statusEl = document.getElementById('status-bar');  
+        const btnEl = document.getElementById('btn-start');  
+        const animLayer = document.getElementById('anim-layer');  
+  
+        // 辅助：暂停  
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));  
+  
+        // 辅助：高亮组件  
+        async function highlight(id, duration = 1000) {  
+            const el = document.getElementById(id);  
+            if (!el) return;  
+            el.classList.add('active-component');  
+            if (duration > 0) {  
+                await sleep(duration);  
+                el.classList.remove('active-component');  
+            }  
+        }  
+  
+        // 辅助：移动数据包  
+        async function movePacket(className, startX, startY, endX, endY, duration) {  
+            const p = document.createElement('div');  
+            p.className = 'packet ' + className;  
+            p.style.left = startX + 'px';  
+            p.style.top = startY + 'px';  
+            p.style.opacity = 1;  
+            animLayer.appendChild(p);  
+  
+            // 强制重绘  
+            p.getBoundingClientRect();  
+  
+            p.style.transition = `all ${duration}ms linear`;  
+            p.style.left = endX + 'px';  
+            p.style.top = endY + 'px';  
+  
+            await sleep(duration);  
+            p.remove();  
+        }  
+  
+        async function startAnimation() {  
+            btnEl.disabled = true;  
+              
+            // Reset styles  
+            document.querySelectorAll('.active-component').forEach(el => el.classList.remove('active-component'));  
+            document.querySelectorAll('.pipeline-node').forEach(el => el.style.opacity = 0.3);  
+  
+            // --- 步骤 1: UI 线程处理输入 ---  
+            statusEl.innerText = "1. Browser Process: 用户输入 URL";  
+            await highlight('comp-ui', 800);  
+              
+            // --- 步骤 2: 发送网络请求 ---  
+            statusEl.innerText = "2. Network Service: DNS 解析 & 建立连接";  
+            // 动画：Browser -> Network  
+            movePacket('url', 150, 70, 150, 350, 800);   
+            await sleep(800);  
+            await highlight('network-service', 1000);  
+  
+            // --- 步骤 3: 接收数据 & 提交导航 ---  
+            statusEl.innerText = "3. IPC: 响应数据流向渲染进程 (Commit Navigation)";  
+            // 动画：Network -> Renderer  
+            movePacket('html', 150, 350, 450, 150, 1000);  
+            await sleep(1000);  
+  
+            // --- 步骤 4: 主线程流水线 (The Pipeline) ---  
+            statusEl.innerText = "4. Main Thread: 解析 HTML -> 构建 DOM 树";  
+            highlight('node-html', 0); // 保持高亮  
+            await sleep(600);  
+  
+            statusEl.innerText = "5. Main Thread: 加载 CSS -> 计算样式 (Recalc Style)";  
+            highlight('node-style', 0);  
+            await sleep(600);  
+  
+            statusEl.innerText = "6. Main Thread: 布局计算 (Layout) - 确定位置大小";  
+            highlight('node-layout', 0);  
+            await sleep(600);  
+  
+            statusEl.innerText = "7. Main Thread: 绘制记录 (Paint Record) - 生成指令";  
+            highlight('node-paint', 0);  
+            await sleep(600);  
+              
+            statusEl.innerText = "8. Main Thread: 分层 (Layerize)";  
+            highlight('node-layer', 0);  
+            await sleep(800);  
+  
+            // 清除流水线高亮  
+            document.querySelectorAll('.pipeline-node').forEach(el => el.classList.remove('active-component'));  
+  
+            // --- 步骤 5: 合成器线程 ---  
+            statusEl.innerText = "9. Compositor Thread: 接收层树，将图层切分为图块 (Tiles)";  
+            await highlight('comp-compositor', 1000);  
+  
+            // --- 步骤 6: 光栅化 (Raster) ---  
+            statusEl.innerText = "10. Raster Thread: 将图块光栅化为位图 (通常由 GPU 完成)";  
+            // 动画：Compositor -> Raster  
+            movePacket('tile', 500, 300, 800, 300, 600);  
+            await sleep(600);  
+            await highlight('comp-raster', 800);  
+  
+            // --- 步骤 7: 提交给 GPU 显示 ---  
+            statusEl.innerText = "11. IPC: DrawQuad 命令发送给 GPU 进程";  
+            // 动画：Raster -> GPU  
+            movePacket('tile', 800, 300, 800, 480, 800);  
+            await sleep(800);  
+  
+            statusEl.innerText = "12. GPU Process: 调用 OpenGL/Skia 并在屏幕上绘制 (Swap Buffers)";  
+            await highlight('gpu-process', 1500);  
+  
+            statusEl.innerText = "✅ 页面渲染完成 (Idle)";  
+            btnEl.disabled = false;  
+        }  
+    </script>  
+</body>  
+</html>  
